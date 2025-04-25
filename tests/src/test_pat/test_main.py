@@ -9,4 +9,4 @@ def test_root_endpoint():
     client = TestClient(app)
     response = client.get("/")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"message": "Hello World"}
+    assert response.json() == {"message": "Welcome to the Python API Template"}
