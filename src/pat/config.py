@@ -107,6 +107,73 @@ class Settings(BaseSettings):
     - production: 60
     """
 
+    # Query retry configuration
+    postgres_query_retry_attempts: int | None = None
+    """
+    Number of times to retry database queries before giving up.
+    Default values by environment:
+    - development: 5
+    - testing: 3
+    - production: 10
+    """
+
+    postgres_query_retry_max_wait: int | None = None
+    """
+    Maximum number of seconds to wait between query retry attempts.
+    Default values by environment:
+    - development: 10
+    - testing: 5
+    - production: 20
+    """
+
+    # Reconnection retry configuration
+    postgres_reconnect_retry_attempts: int | None = None
+    """
+    Number of times to retry reconnecting to the database after a connection loss.
+    Default values by environment:
+    - development: 15
+    - testing: 8
+    - production: 25
+    """
+
+    postgres_reconnect_retry_max_wait: int | None = None
+    """
+    Maximum number of seconds to wait between reconnection retry attempts.
+    Default values by environment:
+    - development: 20
+    - testing: 8
+    - production: 45
+    """
+
+    # Circuit breaker configuration
+    postgres_circuit_breaker_failure_threshold: int | None = None
+    """
+    Number of consecutive failures before the circuit breaker opens.
+    Default values by environment:
+    - development: 5
+    - testing: 3
+    - production: 10
+    """
+
+    postgres_circuit_breaker_recovery_time: int | None = None
+    """
+    Time in seconds to wait before attempting to close the circuit breaker.
+    Default values by environment:
+    - development: 30
+    - testing: 15
+    - production: 60
+    """
+
+    # Jitter configuration
+    postgres_jitter_factor: float | None = None
+    """
+    Factor to apply to jitter (0.0-1.0) to randomize retry intervals.
+    Default values by environment:
+    - development: 0.3
+    - testing: 0.2
+    - production: 0.5
+    """
+
     def get_pool_size(self) -> int:
         """Get the pool size based on the environment if not explicitly set."""
         if self.postgres_pool_size is not None:
@@ -187,6 +254,103 @@ class Settings(BaseSettings):
         if self.environment == EnvironmentType.PRODUCTION:
             return 60
         return 30  # Default fallback
+
+    def get_query_retry_attempts(self) -> int:
+        """Get the number of query retry attempts based on the environment if not explicitly set."""
+        if self.postgres_query_retry_attempts is not None:
+            return self.postgres_query_retry_attempts
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 5
+        if self.environment == EnvironmentType.TESTING:
+            return 3
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 10
+        return 5  # Default fallback
+
+    def get_query_retry_max_wait(self) -> int:
+        """Get the maximum wait time between query retry attempts.
+
+        Returns the value based on the environment if not explicitly set.
+        """
+        if self.postgres_query_retry_max_wait is not None:
+            return self.postgres_query_retry_max_wait
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 10
+        if self.environment == EnvironmentType.TESTING:
+            return 5
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 20
+        return 10  # Default fallback
+
+    def get_reconnect_retry_attempts(self) -> int:
+        """Get the number of reconnection retry attempts based on the environment if not explicitly set."""
+        if self.postgres_reconnect_retry_attempts is not None:
+            return self.postgres_reconnect_retry_attempts
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 15
+        if self.environment == EnvironmentType.TESTING:
+            return 8
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 25
+        return 15  # Default fallback
+
+    def get_reconnect_retry_max_wait(self) -> int:
+        """Get the maximum wait time between reconnection retry attempts.
+
+        Returns the value based on the environment if not explicitly set.
+        """
+        if self.postgres_reconnect_retry_max_wait is not None:
+            return self.postgres_reconnect_retry_max_wait
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 20
+        if self.environment == EnvironmentType.TESTING:
+            return 8
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 45
+        return 20  # Default fallback
+
+    def get_circuit_breaker_failure_threshold(self) -> int:
+        """Get the circuit breaker failure threshold based on the environment if not explicitly set."""
+        if self.postgres_circuit_breaker_failure_threshold is not None:
+            return self.postgres_circuit_breaker_failure_threshold
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 5
+        if self.environment == EnvironmentType.TESTING:
+            return 3
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 10
+        return 5  # Default fallback
+
+    def get_circuit_breaker_recovery_time(self) -> int:
+        """Get the circuit breaker recovery time based on the environment if not explicitly set."""
+        if self.postgres_circuit_breaker_recovery_time is not None:
+            return self.postgres_circuit_breaker_recovery_time
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 30
+        if self.environment == EnvironmentType.TESTING:
+            return 15
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 60
+        return 30  # Default fallback
+
+    def get_jitter_factor(self) -> float:
+        """Get the jitter factor based on the environment if not explicitly set."""
+        if self.postgres_jitter_factor is not None:
+            return self.postgres_jitter_factor
+
+        if self.environment == EnvironmentType.DEVELOPMENT:
+            return 0.3
+        if self.environment == EnvironmentType.TESTING:
+            return 0.2
+        if self.environment == EnvironmentType.PRODUCTION:
+            return 0.5
+        return 0.3  # Default fallback
 
     @field_validator("postgres_uri", mode="before")
     def assemble_postgres_uri(cls, v, values) -> str:  # noqa: N805, ANN001

@@ -52,7 +52,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Set up connection pooling parameters
   - **Expected Outcome**: Properly configured PostgreSQL connection settings.
 
-- [ ] TICKET-004B: Implement connection handling with retries
+- [x] TICKET-004B: Implement connection handling with retries
   - **Description**: Create robust connection handling with retry logic.
   - **Requirements**:
     - Implement connection retry mechanism

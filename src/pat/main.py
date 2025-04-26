@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from pat.api.middleware import setup_middlewares
 from pat.api.responses import http_exception_handler, validation_exception_handler
 from pat.api.router import api_router
-from pat.utils.db import asyncio_engine, init_con
+from pat.utils.db import asyncio_engine, connection_manager
 
 
 @asynccontextmanager
@@ -19,6 +19,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, Any]:
     """Lifespan context manager for the FastAPI application.
 
     This handles startup and shutdown events for the application.
+    During startup, it initializes the database connection manager,
+    which provides robust connection handling with retries and health checks.
 
     Args:
         _app: The FastAPI application
@@ -28,10 +30,17 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, Any]:
 
     """
     logfire.info("Starting application")
-    await init_con()
-    yield
-    logfire.info("Shutting down application")
-    await asyncio_engine.dispose()
+    try:
+        # Initialize the connection manager, which handles retries and health checks
+        await connection_manager.initialize()
+        logfire.info("Database connection manager initialized successfully")
+        yield
+    except Exception as e:
+        logfire.exception("Failed to initialize application", exception=str(e), exception_type=type(e).__name__)
+        raise
+    finally:
+        logfire.info("Shutting down application")
+        await asyncio_engine.dispose()
 
 
 def create_application() -> FastAPI:
