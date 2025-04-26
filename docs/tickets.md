@@ -12,7 +12,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Configure CORS and security headers
   - **Expected Outcome**: A working FastAPI application with versioned endpoints that follows RESTful principles.
 
-- [ ] TICKET-002: Set up SQLAlchemy with async support
+- [x] TICKET-002: Set up SQLAlchemy with async support
   - **Description**: Configure SQLAlchemy ORM with async support for database operations.
   - **Requirements**:
     - Implement connection pooling for efficient resource management
