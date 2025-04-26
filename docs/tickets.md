@@ -36,7 +36,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Ensure migrations work in different environments
   - **Expected Outcome**: Working initial migration scripts that establish the database schema.
 
-- [ ] TICKET-003C: Document migration workflow
+- [x] TICKET-003C: Document migration workflow
   - **Description**: Create documentation for the migration workflow.
   - **Requirements**:
     - Document how to create new migrations
