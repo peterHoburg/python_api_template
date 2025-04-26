@@ -20,7 +20,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Create base models and utility functions for database operations
   - **Expected Outcome**: A fully configured async SQLAlchemy setup ready for model definitions.
 
-- [ ] TICKET-003A: Configure Alembic initial setup
+- [x] TICKET-003A: Configure Alembic initial setup
   - **Description**: Set up the basic Alembic configuration for database migrations.
   - **Requirements**:
     - Install and configure Alembic
