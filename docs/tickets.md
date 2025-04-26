@@ -44,7 +44,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Provide best practices for migration management
   - **Expected Outcome**: Clear documentation that helps developers manage database migrations effectively.
 
-- [ ] TICKET-004A: Configure PostgreSQL connection settings
+- [x] TICKET-004A: Configure PostgreSQL connection settings
   - **Description**: Set up the configuration for PostgreSQL database connections.
   - **Requirements**:
     - Configure database URL and credentials management

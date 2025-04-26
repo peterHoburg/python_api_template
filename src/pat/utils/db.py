@@ -14,19 +14,38 @@ from tenacity import (
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    wait_fixed,
 )
 
 from pat.config import SETTINGS
 
 # Create async engine with connection pooling
+# Get environment-specific connection pooling parameters
+pool_size = SETTINGS.get_pool_size()
+max_overflow = SETTINGS.get_max_overflow()
+pool_timeout = SETTINGS.get_pool_timeout()
+pool_recycle = SETTINGS.get_pool_recycle()
+pool_pre_ping = SETTINGS.postgres_pool_pre_ping
+
+logfire.info(
+    "Creating database engine",
+    environment=SETTINGS.environment,
+    host=SETTINGS.postgres_host,
+    port=SETTINGS.postgres_port,
+    db=SETTINGS.postgres_db,
+    pool_size=pool_size,
+    max_overflow=max_overflow,
+    pool_timeout=pool_timeout,
+    pool_recycle=pool_recycle,
+    pool_pre_ping=pool_pre_ping,
+)
+
 asyncio_engine = create_async_engine(
     str(SETTINGS.postgres_uri),
-    pool_size=5,  # Default number of connections to keep open
-    max_overflow=10,  # Maximum number of connections above pool_size
-    pool_timeout=30,  # Seconds to wait before giving up on getting a connection
-    pool_recycle=1800,  # Recycle connections after 30 minutes
-    pool_pre_ping=True,  # Verify connections before using them
+    pool_size=pool_size,
+    max_overflow=max_overflow,
+    pool_timeout=pool_timeout,
+    pool_recycle=pool_recycle,
+    pool_pre_ping=pool_pre_ping,
 )
 
 
@@ -197,9 +216,11 @@ RETRY_TRANSIENT_DB_ERRORS = {
     "reraise": True,
 }
 
+# Configuration for connection retries
+# More aggressive retry for initial connection to handle startup scenarios
 RETRY_CONNECTION = {
-    "stop": stop_after_attempt(20),
-    "wait": wait_fixed(1),
+    "stop": stop_after_attempt(SETTINGS.get_connection_retry_attempts()),
+    "wait": wait_exponential(multiplier=0.5, min=1, max=SETTINGS.get_connection_retry_max_wait()),
     "reraise": True,
 }
 
@@ -247,15 +268,57 @@ async def init_con() -> None:
     """Initialize the database connection with retries.
 
     This function is called during application startup to ensure
-    the database is available.
+    the database is available. It uses an exponential backoff strategy
+    to retry connections, with environment-specific retry parameters.
 
     Raises:
         Exception: If the connection cannot be established after retries
 
     """
     try:
+        logfire.info(
+            "Initializing database connection",
+            environment=SETTINGS.environment,
+            host=SETTINGS.postgres_host,
+            port=SETTINGS.postgres_port,
+            db=SETTINGS.postgres_db,
+            retry_attempts=SETTINGS.get_connection_retry_attempts(),
+            retry_max_wait=SETTINGS.get_connection_retry_max_wait(),
+        )
+
         async with session_context() as session:
-            await session.execute(select(1))
-    except Exception:
-        logfire.exception("failed to init db con")
+            result = await session.execute(select(1))
+            value = result.scalar_one()
+            if value == 1:
+                logfire.info("Database connection successfully established")
+            else:
+                logfire.error(f"Unexpected result from database ping: {value}")
+                # Define error message as a variable to satisfy linting rules
+                error_msg = "Database connection test failed"
+
+                def _raise_connection_error() -> None:
+                    """Raise a RuntimeError with the connection error message."""
+                    raise RuntimeError(error_msg)
+
+                _raise_connection_error()
+    except OperationalError as e:
+        logfire.exception(
+            "Database connection failed due to operational error",
+            exception=str(e),
+            error_code=getattr(e, "code", None),
+        )
+        raise
+    except DBAPIError as e:
+        logfire.exception(
+            "Database connection failed due to DBAPI error",
+            exception=str(e),
+            error_code=getattr(e, "code", None),
+        )
+        raise
+    except Exception as e:
+        logfire.exception(
+            "Failed to initialize database connection",
+            exception=str(e),
+            exception_type=type(e).__name__,
+        )
         raise
