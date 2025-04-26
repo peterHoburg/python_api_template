@@ -28,7 +28,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Configure Alembic to work with the SQLAlchemy models
   - **Expected Outcome**: Basic Alembic setup that can be used for migrations.
 
-- [ ] TICKET-003B: Create initial migration scripts
+- [x] TICKET-003B: Create initial migration scripts
   - **Description**: Develop the initial migration scripts for the database schema.
   - **Requirements**:
     - Generate initial migration script for existing models
