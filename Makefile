@@ -21,3 +21,18 @@ generate_migrations: fix_uv
 	docker compose down --remove-orphans
 	docker compose run --remove-orphans -d -p "5432:5432" postgres
 	uv run alembic revision --autogenerate
+
+db-init: fix_uv
+	docker compose down --remove-orphans
+	docker compose run --remove-orphans -d -p "5432:5432" postgres
+	uv run python -m scripts.db_init --init
+
+db-seed: fix_uv
+	docker compose down --remove-orphans
+	docker compose run --remove-orphans -d -p "5432:5432" postgres
+	uv run python -m scripts.db_init --seed
+
+db-setup: fix_uv
+	docker compose down --remove-orphans
+	docker compose run --remove-orphans -d -p "5432:5432" postgres
+	uv run python -m scripts.db_init --all

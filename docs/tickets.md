@@ -60,7 +60,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Create proper error handling for connection issues
   - **Expected Outcome**: Reliable connection handling that can recover from temporary database unavailability.
 
-- [ ] TICKET-004C: Create database initialization scripts
+- [x] TICKET-004C: Create database initialization scripts
   - **Description**: Develop scripts for initializing the database.
   - **Requirements**:
     - Create scripts for database setup
