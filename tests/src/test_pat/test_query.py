@@ -2,7 +2,7 @@
 
 import pytest
 
-from pat.schemas.schemas import User
+from pat.models import User
 from pat.utils.crud import create
 from pat.utils.db import session_context
 from pat.utils.query import exists, get_by_field, get_by_fields, get_latest, get_ordered, search

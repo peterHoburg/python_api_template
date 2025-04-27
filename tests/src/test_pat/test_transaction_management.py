@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy.future import select
 
-from pat.schemas.schemas import User
+from pat.models import User
 from pat.utils.db import commit_transaction, in_transaction, rollback_transaction, session_context
 
 

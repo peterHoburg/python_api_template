@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.future import select
 
-from pat.schemas.schemas import User
+from pat.models import User
 from pat.utils.db import session_context
 
 

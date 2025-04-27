@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy.future import select
 
-from pat.schemas.schemas import User
+from pat.models import User
 from pat.utils.crud import count, create, delete_by_id, get, get_multi, update_by_id
 from pat.utils.db import session_context
 

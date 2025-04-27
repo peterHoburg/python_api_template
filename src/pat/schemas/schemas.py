@@ -1,15 +1,33 @@
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+"""Pydantic schemas for the application.
 
-from pat.models.base import Base
+This module contains Pydantic schemas for data validation and serialization.
+These schemas are used for API requests and responses.
+"""
+
+from pydantic import EmailStr, Field
+
+from pat.schemas.base import BaseCreateSchema, BaseResponseSchema, BaseSchema, BaseUpdateSchema
 
 
-class User(Base):
-    # Use the automatic table name generation from Base class
-    id: Mapped[int] = mapped_column(primary_key=True)
-    first_name: Mapped[str] = mapped_column(String(100))
-    last_name: Mapped[str] = mapped_column(String(100))
-    email: Mapped[str] = mapped_column(String(300), unique=True)
+class UserBase(BaseSchema):
+    """Base schema for User data."""
 
-    def __repr__(self) -> str:
-        return f"User(id={self.id!r}, name={self.first_name!r}, fullname={self.last_name!r})"
+    first_name: str = Field(..., description="User's first name", max_length=100)
+    last_name: str = Field(..., description="User's last name", max_length=100)
+    email: EmailStr = Field(..., description="User's email address")
+
+
+class UserCreate(BaseCreateSchema, UserBase):
+    """Schema for creating a new User."""
+
+
+class UserUpdate(BaseUpdateSchema):
+    """Schema for updating an existing User."""
+
+    first_name: str | None = Field(None, description="User's first name", max_length=100)
+    last_name: str | None = Field(None, description="User's last name", max_length=100)
+    email: EmailStr | None = Field(None, description="User's email address")
+
+
+class UserResponse(BaseResponseSchema, UserBase):
+    """Schema for User response data."""

@@ -68,7 +68,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Ensure scripts are idempotent
   - **Expected Outcome**: Scripts that can reliably initialize the database in any environment.
 
-- [ ] TICKET-005A: Define base Pydantic models
+- [x] TICKET-005A: Define base Pydantic models
   - **Description**: Create base Pydantic models with common validation logic.
   - **Requirements**:
     - Implement base model classes
