@@ -2,16 +2,20 @@
 
 from fastapi import APIRouter
 
+from pat.api.responses import SuccessResponse
+from pat.schemas.schemas import HealthCheckResponse
+
 # Create the main router for v1
 router = APIRouter()
 
 
 @router.get("/health")
-async def health_check() -> dict[str, str]:
+async def health_check() -> SuccessResponse[HealthCheckResponse]:
     """Health check endpoint for API v1.
 
     Returns:
-        dict: A dictionary with a status message.
+        SuccessResponse[HealthCheckResponse]: A success response containing the health status.
 
     """
-    return {"status": "healthy"}
+    health_status = HealthCheckResponse(status="healthy")
+    return SuccessResponse(status="success", data=health_status)

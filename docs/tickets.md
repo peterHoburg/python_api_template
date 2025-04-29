@@ -76,7 +76,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Set up configuration for all models
   - **Expected Outcome**: Base models that provide consistent validation and behavior.
 
-- [ ] TICKET-005B: Implement request/response models
+- [x] TICKET-005B: Implement request/response models
   - **Description**: Create Pydantic models for API requests and responses.
   - **Requirements**:
     - Define models for all API endpoints

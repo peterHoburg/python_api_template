@@ -19,7 +19,9 @@ def test_api_v1_health_endpoint():
     client = TestClient(app)
     response = client.get("/api/v1/health")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"status": "healthy"}
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert response_json["data"]["status"] == "healthy"
 
 
 def test_api_docs_endpoint():
