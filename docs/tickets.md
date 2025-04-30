@@ -84,7 +84,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Add documentation for each model
   - **Expected Outcome**: Well-defined request and response models for all API endpoints.
 
-- [ ] TICKET-005C: Add custom validators
+- [x] TICKET-005C: Add custom validators
   - **Description**: Implement custom validators for complex validation logic.
   - **Requirements**:
     - Create reusable validators for common patterns
