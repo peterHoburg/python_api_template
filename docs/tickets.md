@@ -92,7 +92,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Add error messages for validation failures
   - **Expected Outcome**: Custom validators that handle complex validation scenarios.
 
-- [ ] TICKET-006A: Set up Auth0 integration
+- [x] TICKET-006A: Set up Auth0 integration
   - **Description**: Configure the basic Auth0 integration.
   - **Requirements**:
     - Set up Auth0 client configuration
@@ -100,7 +100,7 @@ This file contains a list of tickets that will transform the codebase from its c
     - Configure callback handling
   - **Expected Outcome**: Basic Auth0 integration that allows users to authenticate.
 
-- [ ] TICKET-006B: Implement JWT validation
+- [x] TICKET-006B: Implement JWT validation
   - **Description**: Create JWT validation for secure authentication.
   - **Requirements**:
     - Implement JWT token validation

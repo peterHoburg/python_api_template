@@ -111,3 +111,18 @@ class UserFilter(BaseSchema):
     email: str | None = Field(None, description="Filter by email")
     sort_by: str | None = Field(None, description="Field to sort by")
     sort_order: str | None = Field(None, description="Sort order (asc or desc)")
+
+
+class UserProfileResponse(BaseSchema):
+    """Schema for Auth0 user profile response.
+
+    This schema is used for returning Auth0 user profile data in API responses.
+    It contains fields that are typically returned by Auth0 for a user profile.
+    """
+
+    sub: str = Field(..., description="The user's unique identifier")
+    nickname: str | None = Field(None, description="The user's nickname")
+    name: str | None = Field(None, description="The user's full name")
+    picture: str | None = Field(None, description="URL to the user's profile picture")
+    email: str | None = Field(None, description="The user's email address")
+    email_verified: bool | None = Field(None, description="Whether the user's email is verified")

@@ -3,10 +3,14 @@
 from fastapi import APIRouter
 
 from pat.api.responses import SuccessResponse
+from pat.api.v1.auth import router as auth_router
 from pat.schemas.schemas import HealthCheckResponse
 
 # Create the main router for v1
 router = APIRouter()
+
+# Include the auth router
+router.include_router(auth_router)
 
 
 @router.get("/health")

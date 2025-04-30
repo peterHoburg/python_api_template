@@ -1,7 +1,7 @@
 from enum import Enum
 
 import logfire
-from pydantic import PostgresDsn, field_validator
+from pydantic import AnyHttpUrl, PostgresDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -173,6 +173,79 @@ class Settings(BaseSettings):
     - testing: 0.2
     - production: 0.5
     """
+
+    # Auth0 configuration
+    auth0_domain: str | None = None
+    """
+    Auth0 domain (e.g., 'your-tenant.auth0.com').
+    Required for Auth0 integration.
+    """
+
+    auth0_client_id: str | None = None
+    """
+    Auth0 client ID.
+    Required for Auth0 integration.
+    """
+
+    auth0_client_secret: SecretStr | None = None
+    """
+    Auth0 client secret.
+    Required for Auth0 integration.
+    """
+
+    auth0_audience: str | None = None
+    """
+    Auth0 API audience (identifier).
+    Required for Auth0 integration.
+    """
+
+    auth0_callback_url: AnyHttpUrl | None = None  # pyright: ignore [reportAssignmentType]
+    """
+    URL to redirect to after authentication.
+    Required for Auth0 integration.
+    """
+
+    def is_auth0_enabled(self) -> bool:
+        """Check if Auth0 integration is enabled by verifying all required settings are provided."""
+        return all(
+            [
+                self.auth0_domain,
+                self.auth0_client_id,
+                self.auth0_client_secret,
+                self.auth0_audience,
+                self.auth0_callback_url,
+            ]
+        )
+
+    def get_auth0_domain(self) -> str:
+        """Get the Auth0 domain, raising an error if not configured."""
+        if not self.auth0_domain:
+            raise ValueError("Auth0 domain is not configured")
+        return self.auth0_domain
+
+    def get_auth0_client_id(self) -> str:
+        """Get the Auth0 client ID, raising an error if not configured."""
+        if not self.auth0_client_id:
+            raise ValueError("Auth0 client ID is not configured")
+        return self.auth0_client_id
+
+    def get_auth0_client_secret(self) -> str:
+        """Get the Auth0 client secret, raising an error if not configured."""
+        if not self.auth0_client_secret:
+            raise ValueError("Auth0 client secret is not configured")
+        return self.auth0_client_secret.get_secret_value()
+
+    def get_auth0_audience(self) -> str:
+        """Get the Auth0 audience, raising an error if not configured."""
+        if not self.auth0_audience:
+            raise ValueError("Auth0 audience is not configured")
+        return self.auth0_audience
+
+    def get_auth0_callback_url(self) -> str:
+        """Get the Auth0 callback URL, raising an error if not configured."""
+        if not self.auth0_callback_url:
+            raise ValueError("Auth0 callback URL is not configured")
+        return str(self.auth0_callback_url)
 
     def get_pool_size(self) -> int:
         """Get the pool size based on the environment if not explicitly set."""
@@ -366,6 +439,35 @@ class Settings(BaseSettings):
 
         if all([host, user, password, db]):
             return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
+        return v
+
+    @field_validator("auth0_domain", "auth0_client_id", "auth0_client_secret", "auth0_audience", "auth0_callback_url")
+    def validate_auth0_settings(cls, v, info):  # noqa: N805, ANN001
+        """Validate that all Auth0 settings are provided if any are provided."""
+        # If this specific field is not set, just return it
+        if v is None:
+            return v
+
+        # Get all Auth0 settings
+        values = info.data
+        auth0_settings = {
+            "auth0_domain": values.get("auth0_domain"),
+            "auth0_client_id": values.get("auth0_client_id"),
+            "auth0_client_secret": values.get("auth0_client_secret"),
+            "auth0_audience": values.get("auth0_audience"),
+            "auth0_callback_url": values.get("auth0_callback_url"),
+        }
+
+        # Check if any Auth0 settings are provided
+        if any(auth0_settings.values()):
+            # If any are provided, all must be provided
+            missing = [k for k, v in auth0_settings.items() if v is None]
+            if missing:
+                missing_fields = ", ".join(missing)
+                raise ValueError(
+                    f"Auth0 integration requires all Auth0 settings to be provided. Missing: {missing_fields}"
+                )
+
         return v
 
     model_config = SettingsConfigDict(

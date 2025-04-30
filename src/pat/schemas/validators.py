@@ -45,12 +45,10 @@ import re
 from collections.abc import Callable
 from enum import Enum
 from re import Pattern
-from typing import Any, Callable, TypeVar, cast, Dict, List, Optional, Set, Type, Union, Any
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 from pydantic import field_validator, model_validator
-from pydantic.fields import FieldValidatorDecoratorInfo
-from pydantic.functional_validators import ModelValidatorDecoratorInfo
 
 
 def validate_phone_number(field_name: str) -> Callable:
