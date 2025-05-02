@@ -1,5 +1,7 @@
 """Authentication endpoints for API version 1."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 
@@ -56,16 +58,16 @@ async def login(
 
 @router.get("/callback")
 async def auth0_callback(
-    code: str = Query(..., description="The authorization code from Auth0"),
-    state: str | None = Query(None, description="The state value from the authorization request"),
-    error: str | None = Query(None, description="Error code if authentication failed"),
-    error_description: str | None = Query(None, description="Error description if authentication failed"),
+    code: Annotated[str, Query(description="The authorization code from Auth0")],
+    _state: Annotated[str | None, Query(description="The state value from the authorization request")] = None,
+    error: Annotated[str | None, Query(description="Error code if authentication failed")] = None,
+    error_description: Annotated[str | None, Query(description="Error description if authentication failed")] = None,
 ) -> SuccessResponse[dict]:
     """Handle the callback from Auth0 after user authentication.
 
     Args:
         code: The authorization code from Auth0.
-        state: The state value from the authorization request.
+        _state: The state value from the authorization request.
         error: Error code if authentication failed.
         error_description: Error description if authentication failed.
 
@@ -107,15 +109,17 @@ async def auth0_callback(
         )
     except (ValueError, HTTPException) as e:
         if isinstance(e, HTTPException):
-            raise e
+            raise
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         ) from e
 
 
-@router.get("/me", response_model=SuccessResponse[UserProfileResponse])
-async def get_user_info(user: UserProfile = Depends(get_current_user)) -> SuccessResponse[UserProfileResponse]:
+@router.get("/me")
+async def get_user_info(
+    user: Annotated[UserProfile, Depends(get_current_user)],
+) -> SuccessResponse[UserProfileResponse]:
     """Get the current user's profile.
 
     Args:

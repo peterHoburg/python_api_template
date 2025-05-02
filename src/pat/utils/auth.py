@@ -31,6 +31,9 @@ _JWKS_CACHE: dict[str, Any] = {}
 _JWKS_CACHE_TIMESTAMP: datetime | None = None
 _JWKS_CACHE_TTL = timedelta(hours=24)  # Cache JWKS for 24 hours
 
+# Error messages
+AUTH0_NOT_CONFIGURED_ERROR = "Auth0 is not configured"
+
 
 class TokenResponse(BaseModel):
     """Response model for token exchange."""
@@ -75,7 +78,7 @@ def get_authorization_url(
 
     """
     if not SETTINGS.is_auth0_enabled():
-        raise ValueError("Auth0 is not configured")
+        raise ValueError(AUTH0_NOT_CONFIGURED_ERROR)
 
     params = {
         "client_id": SETTINGS.get_auth0_client_id(),
@@ -90,8 +93,7 @@ def get_authorization_url(
     if audience or SETTINGS.auth0_audience:
         params["audience"] = audience or SETTINGS.get_auth0_audience()
 
-    auth_url = f"https://{SETTINGS.get_auth0_domain()}/authorize?{urlencode(params)}"
-    return auth_url
+    return f"https://{SETTINGS.get_auth0_domain()}/authorize?{urlencode(params)}"
 
 
 async def exchange_code_for_token(code: str, redirect_uri: str | None = None) -> TokenResponse:
@@ -111,7 +113,7 @@ async def exchange_code_for_token(code: str, redirect_uri: str | None = None) ->
 
     """
     if not SETTINGS.is_auth0_enabled():
-        raise ValueError("Auth0 is not configured")
+        raise ValueError(AUTH0_NOT_CONFIGURED_ERROR)
 
     try:
         auth0_domain = SETTINGS.get_auth0_domain()
@@ -143,15 +145,14 @@ async def get_jwks() -> dict[str, Any]:
         ValueError: If Auth0 is not configured.
 
     """
-    global _JWKS_CACHE, _JWKS_CACHE_TIMESTAMP
+    global _JWKS_CACHE, _JWKS_CACHE_TIMESTAMP  # noqa: PLW0603
 
     if not SETTINGS.is_auth0_enabled():
-        raise ValueError("Auth0 is not configured")
+        raise ValueError(AUTH0_NOT_CONFIGURED_ERROR)
 
     # Check if we have a valid cached JWKS
-    if _JWKS_CACHE and _JWKS_CACHE_TIMESTAMP:
-        if datetime.now() - _JWKS_CACHE_TIMESTAMP < _JWKS_CACHE_TTL:
-            return _JWKS_CACHE
+    if _JWKS_CACHE and _JWKS_CACHE_TIMESTAMP and datetime.now() - _JWKS_CACHE_TIMESTAMP < _JWKS_CACHE_TTL:  # noqa: DTZ005
+        return _JWKS_CACHE
 
     # Fetch JWKS from Auth0
     try:
@@ -160,17 +161,16 @@ async def get_jwks() -> dict[str, Any]:
             response = await client.get(jwks_url)
             response.raise_for_status()
             jwks = response.json()
-
-        # Update cache
-        _JWKS_CACHE = jwks
-        _JWKS_CACHE_TIMESTAMP = datetime.now()
-
-        return jwks
     except httpx.HTTPError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to retrieve JWKS from Auth0: {e!s}",
         ) from e
+    else:
+        # Update cache
+        _JWKS_CACHE = jwks
+        _JWKS_CACHE_TIMESTAMP = datetime.now()  # noqa: DTZ005
+        return jwks
 
 
 async def validate_token(token: str, *, leeway: int = 30) -> dict[str, Any]:
@@ -198,14 +198,14 @@ async def validate_token(token: str, *, leeway: int = 30) -> dict[str, Any]:
 
     """
     if not SETTINGS.is_auth0_enabled():
-        raise ValueError("Auth0 is not configured")
+        raise ValueError(AUTH0_NOT_CONFIGURED_ERROR)
 
     try:
-        # Get JWKS with caching
-        jwks = await get_jwks()
+        # Get JWKS URL
+        jwks_url = f"https://{SETTINGS.get_auth0_domain()}/.well-known/jwks.json"
 
         # Set up token verification
-        signature_verifier = AsymmetricSignatureVerifier(jwks)
+        signature_verifier = AsymmetricSignatureVerifier(jwks_url)
         issuer = f"https://{SETTINGS.get_auth0_domain()}/"
 
         # Create token verifier with leeway for clock skew
@@ -243,15 +243,15 @@ async def validate_token(token: str, *, leeway: int = 30) -> dict[str, Any]:
 
         # Additional validation checks
         if "exp" not in payload:
-            raise JWTClaimsError("Token is missing expiration claim")
+            raise JWTClaimsError("Token is missing expiration claim")  # noqa: TRY301, TRY003, EM101
 
         # Check if token is about to expire (within 5 minutes)
-        if payload["exp"] - time.time() < 300:  # 5 minutes in seconds
+        if payload["exp"] - time.time() < 300:  # 5 minutes in seconds  # noqa: PLR2004
             # Log a warning that the token is about to expire
             # In a real application, you might want to refresh the token here
             pass
 
-        return payload
+        return payload  # noqa: TRY300
     except ExpiredSignatureError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -294,7 +294,7 @@ async def get_user_profile(token: str) -> UserProfile:
 
     """
     if not SETTINGS.is_auth0_enabled():
-        raise ValueError("Auth0 is not configured")
+        raise ValueError(AUTH0_NOT_CONFIGURED_ERROR)
 
     try:
         # Try to decode the token as an ID token first
@@ -347,12 +347,12 @@ def get_token_from_request(request: Request) -> str:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication scheme",
             )
-        return token
-    except ValueError:
+        return token  # noqa: TRY300
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authorization header format",
-        )
+        ) from e
 
 
 async def get_current_user(request: Request) -> UserProfile:

@@ -46,12 +46,12 @@ from collections.abc import Callable
 from enum import Enum
 from re import Pattern
 from typing import Any, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 from pydantic import field_validator, model_validator
 
 
-def validate_phone_number(field_name: str) -> Callable:
+def validate_phone_number(field_name: str) -> Any:  # noqa: ANN401
     """Validate a phone number field.
 
     This validator checks if a phone number is in a valid format.
@@ -79,24 +79,25 @@ def validate_phone_number(field_name: str) -> Callable:
 
     @field_validator(field_name, mode="after")
     @classmethod
-    def validate(cls, v: str | None) -> str | None:
+    def validate(_cls: type, v: str | None) -> str | None:
         if v is None:
             return None
 
         # Remove any whitespace
         v = v.strip()
 
+        error_message = (
+            "Invalid phone number format. Please provide a valid phone number (e.g., +1 123-456-7890, (123) 456-7890)."
+        )
+
         if not pattern.match(v):
-            raise ValueError(
-                "Invalid phone number format. Please provide a valid phone number "
-                "(e.g., +1 123-456-7890, (123) 456-7890)."
-            )
+            raise ValueError(error_message)
         return v
 
     return validate
 
 
-def validate_url(field_name: str, allowed_schemes: set[str] | None = None) -> Callable:
+def validate_url(field_name: str, allowed_schemes: set[str] | None = None) -> Any:  # noqa: ANN401
     """Validate a URL field.
 
     This validator checks if a URL is in a valid format and uses an allowed scheme.
@@ -124,31 +125,46 @@ def validate_url(field_name: str, allowed_schemes: set[str] | None = None) -> Ca
 
     @field_validator(field_name, mode="after")
     @classmethod
-    def validate(cls, v: str | None) -> str | None:
+    def validate(_cls: type, v: str | None) -> str | None:
         if v is None:
             return None
 
         # Remove any whitespace
         v = v.strip()
 
+        scheme_error_message = "URL must include a scheme (e.g., http://, https://)"
+        domain_error_message = "URL must include a valid domain"
+
+        def validate_url_parts(parsed_url: ParseResult) -> None:
+            if not parsed_url.scheme:
+                raise ValueError(scheme_error_message)
+
+            if parsed_url.scheme not in allowed_schemes:
+                schemes_str = ", ".join(allowed_schemes)
+                scheme_list_error = f"URL scheme must be one of: {schemes_str}"
+                raise ValueError(scheme_list_error)
+
+            if not parsed_url.netloc:
+                raise ValueError(domain_error_message)
+
         try:
             result = urlparse(v)
-            if not result.scheme:
-                raise ValueError("URL must include a scheme (e.g., http://, https://)")
-            if result.scheme not in allowed_schemes:
-                schemes_str = ", ".join(allowed_schemes)
-                raise ValueError(f"URL scheme must be one of: {schemes_str}")
-            if not result.netloc:
-                raise ValueError("URL must include a valid domain")
+            validate_url_parts(result)
+
+        except ValueError:
+            # Re-raise ValueError directly
+            raise
         except Exception as e:
-            raise ValueError(f"Invalid URL format: {e!s}")
+            # For other exceptions, create a new error message
+            format_error_message = f"Invalid URL format: {e!s}"
+            raise ValueError(format_error_message) from e
 
         return v
 
     return validate
 
 
-def validate_date_range(start_field: str, end_field: str, allow_equal: bool = True) -> classmethod:
+def validate_date_range(start_field: str, end_field: str, *, allow_equal: bool = True) -> Any:  # noqa: ANN401
     """Validate that a start date comes before an end date.
 
     This validator checks if the start date is before (or equal to) the end date.
@@ -173,26 +189,25 @@ def validate_date_range(start_field: str, end_field: str, allow_equal: bool = Tr
     """
 
     @model_validator(mode="after")
-    def validate(cls, values: Any) -> Any:
-        model = values
+    def validate(model: Any, _: Any) -> Any:  # noqa: ANN401
         start_date = getattr(model, start_field, None)
         end_date = getattr(model, end_field, None)
 
         if start_date is not None and end_date is not None:
             if allow_equal:
                 if start_date > end_date:
-                    raise ValueError(f"{start_field} must be before or equal to {end_field}")
+                    error_message = f"{start_field} must be before or equal to {end_field}"
+                    raise ValueError(error_message)
             elif start_date >= end_date:
-                raise ValueError(f"{start_field} must be before {end_field}")
+                error_message = f"{start_field} must be before {end_field}"
+                raise ValueError(error_message)
 
         return model
 
     return validate
 
 
-def validate_numeric_range(
-    field_name: str, min_value: float | None = None, max_value: float | None = None
-) -> classmethod:
+def validate_numeric_range(field_name: str, min_value: float | None = None, max_value: float | None = None) -> Any:  # noqa: ANN401
     """Validate that a numeric value is within a specified range.
 
     Args:
@@ -215,28 +230,30 @@ def validate_numeric_range(
 
     @field_validator(field_name, mode="after")
     @classmethod
-    def validate(cls, v: float | None) -> int | float | None:
+    def validate(_cls: type, v: float | None) -> int | float | None:
         if v is None:
             return None
 
         if min_value is not None and v < min_value:
             if max_value is not None:
-                raise ValueError(f"Value must be between {min_value} and {max_value}")
-            raise ValueError(f"Value must be greater than or equal to {min_value}")
+                error_message = f"Value must be between {min_value} and {max_value}"
+                raise ValueError(error_message)
+            error_message = f"Value must be greater than or equal to {min_value}"
+            raise ValueError(error_message)
 
         if max_value is not None and v > max_value:
             if min_value is not None:
-                raise ValueError(f"Value must be between {min_value} and {max_value}")
-            raise ValueError(f"Value must be less than or equal to {max_value}")
+                error_message = f"Value must be between {min_value} and {max_value}"
+                raise ValueError(error_message)
+            error_message = f"Value must be less than or equal to {max_value}"
+            raise ValueError(error_message)
 
         return v
 
     return validate
 
 
-def validate_alphanumeric(
-    field_name: str, pattern: Pattern | None = None, error_message: str | None = None
-) -> classmethod:
+def validate_alphanumeric(field_name: str, pattern: Pattern | None = None, error_message: str | None = None) -> Any:  # noqa: ANN401
     """Validate that a string matches a specific pattern.
 
     Args:
@@ -270,7 +287,7 @@ def validate_alphanumeric(
 
     @field_validator(field_name, mode="after")
     @classmethod
-    def validate(cls, v: str | None) -> str | None:
+    def validate(_cls: type, v: str | None) -> str | None:
         if v is None:
             return None
 
@@ -285,7 +302,7 @@ def validate_alphanumeric(
 T = TypeVar("T", bound=Enum)
 
 
-def validate_enum_value(field_name: str, enum_class: type[T], case_insensitive: bool = False) -> classmethod:
+def validate_enum_value(field_name: str, enum_class: type[T], *, case_insensitive: bool = False) -> Any:  # noqa: ANN401
     """Validate that a value is a valid enum value.
 
     Args:
@@ -313,7 +330,7 @@ def validate_enum_value(field_name: str, enum_class: type[T], case_insensitive: 
 
     @field_validator(field_name, mode="before")
     @classmethod
-    def validate(cls, v: Any) -> Any:
+    def validate(_cls: type, v: Any) -> Any:  # noqa: ANN401
         if v is None:
             return None
 
@@ -325,19 +342,21 @@ def validate_enum_value(field_name: str, enum_class: type[T], case_insensitive: 
 
             # If we get here, no match was found
             valid_values = ", ".join(str(e.value) for e in enum_class)
-            raise ValueError(f"Value must be one of: {valid_values}")
+            error_message = f"Value must be one of: {valid_values}"
+            raise ValueError(error_message)
 
         # Standard enum validation
         try:
             return enum_class(v).value
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
             valid_values = ", ".join(str(e.value) for e in enum_class)
-            raise ValueError(f"Value must be one of: {valid_values}")
+            error_message = f"Value must be one of: {valid_values}"
+            raise ValueError(error_message) from e
 
     return validate
 
 
-def validate_conditional_required(field_name: str, condition_field: str, condition_value: Any) -> classmethod:
+def validate_conditional_required(field_name: str, condition_field: str, condition_value: Any) -> Any:  # noqa: ANN401
     """Make a field required only when another field has a specific value.
 
     Args:
@@ -363,20 +382,20 @@ def validate_conditional_required(field_name: str, condition_field: str, conditi
     """
 
     @model_validator(mode="after")
-    def validate(cls, values: Any) -> Any:
-        model = values
+    def validate(model: Any, _: Any) -> Any:  # noqa: ANN401
         condition_value_actual = getattr(model, condition_field, None)
         field_value = getattr(model, field_name, None)
 
         if condition_value_actual == condition_value and field_value is None:
-            raise ValueError(f"Field '{field_name}' is required when '{condition_field}' is '{condition_value}'")
+            error_message = f"Field '{field_name}' is required when '{condition_field}' is '{condition_value}'"
+            raise ValueError(error_message)
 
         return model
 
     return validate
 
 
-def validate_cross_fields(fields: list[str], validator_func: Callable[[dict[str, Any]], None]) -> classmethod:
+def validate_cross_fields(fields: list[str], validator_func: Callable[[dict[str, Any]], None]) -> Any:  # noqa: ANN401
     """Apply custom validation across multiple fields.
 
     Args:
@@ -409,9 +428,7 @@ def validate_cross_fields(fields: list[str], validator_func: Callable[[dict[str,
     """
 
     @model_validator(mode="after")
-    def validate(cls, values: Any) -> Any:
-        model = values
-
+    def validate(model: Any, _: Any) -> Any:  # noqa: ANN401
         # Extract only the fields we need for validation
         fields_dict = {field: getattr(model, field, None) for field in fields}
 
@@ -424,8 +441,8 @@ def validate_cross_fields(fields: list[str], validator_func: Callable[[dict[str,
 
 
 def validate_collection(
-    field_name: str, item_validator: Callable[[Any], Any], error_prefix: str = "Item validation failed"
-) -> classmethod:
+    field_name: str, item_validator: Callable[[Any], Any], *, error_prefix: str = "Item validation failed"
+) -> Any:  # noqa: ANN401
     """Validate each item in a collection field.
 
     Args:
@@ -454,7 +471,7 @@ def validate_collection(
 
     @field_validator(field_name, mode="after")
     @classmethod
-    def validate(cls, v: list[Any] | None) -> list[Any] | None:
+    def validate(_cls: type, v: list[Any] | None) -> list[Any] | None:
         if v is None:
             return None
 
@@ -469,7 +486,8 @@ def validate_collection(
                 errors.append(f"Item {i}: {e!s}")
 
         if errors:
-            raise ValueError(f"{error_prefix}: {'; '.join(errors)}")
+            error_message = f"{error_prefix}: {'; '.join(errors)}"
+            raise ValueError(error_message)
 
         return result
 
@@ -478,7 +496,7 @@ def validate_collection(
 
 def validate_dependent_fields(
     primary_field: str, dependent_fields: list[str], validator_func: Callable[[Any, dict[str, Any]], None]
-) -> classmethod:
+) -> Any:  # noqa: ANN401
     """Validate dependent fields based on a primary field.
 
     Args:
@@ -516,8 +534,7 @@ def validate_dependent_fields(
     """
 
     @model_validator(mode="after")
-    def validate(cls, values: Any) -> Any:
-        model = values
+    def validate(model: Any, _: Any) -> Any:  # noqa: ANN401
         primary_value = getattr(model, primary_field, None)
 
         if primary_value is not None:

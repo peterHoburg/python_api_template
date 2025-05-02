@@ -97,6 +97,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "ANN201",
     "S101",
     "T201",
+    "PLR2004",
 ]
 "alembic/**" = [
     "INP001",

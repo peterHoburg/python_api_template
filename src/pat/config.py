@@ -1,7 +1,8 @@
 from enum import Enum
+from typing import ClassVar
 
 import logfire
-from pydantic import AnyHttpUrl, PostgresDsn, SecretStr, field_validator
+from pydantic import AnyHttpUrl, PostgresDsn, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,14 @@ class Settings(BaseSettings):
 
     If specific pooling or retry parameters are not provided, environment-specific defaults will be used.
     """
+
+    # Error messages
+    AUTH0_DOMAIN_NOT_CONFIGURED: ClassVar[str] = "Auth0 domain is not configured"
+    AUTH0_CLIENT_ID_NOT_CONFIGURED: ClassVar[str] = "Auth0 client ID is not configured"
+    # Using noqa to ignore S105 warning for this specific case
+    AUTH0_CLIENT_SECRET_NOT_CONFIGURED: ClassVar[str] = "Auth0 client secret is not configured"  # noqa: S105
+    AUTH0_AUDIENCE_NOT_CONFIGURED: ClassVar[str] = "Auth0 audience is not configured"
+    AUTH0_CALLBACK_URL_NOT_CONFIGURED: ClassVar[str] = "Auth0 callback URL is not configured"
 
     # Environment configuration
     environment: EnvironmentType = EnvironmentType.DEVELOPMENT
@@ -220,31 +229,31 @@ class Settings(BaseSettings):
     def get_auth0_domain(self) -> str:
         """Get the Auth0 domain, raising an error if not configured."""
         if not self.auth0_domain:
-            raise ValueError("Auth0 domain is not configured")
+            raise ValueError(self.AUTH0_DOMAIN_NOT_CONFIGURED)
         return self.auth0_domain
 
     def get_auth0_client_id(self) -> str:
         """Get the Auth0 client ID, raising an error if not configured."""
         if not self.auth0_client_id:
-            raise ValueError("Auth0 client ID is not configured")
+            raise ValueError(self.AUTH0_CLIENT_ID_NOT_CONFIGURED)
         return self.auth0_client_id
 
     def get_auth0_client_secret(self) -> str:
         """Get the Auth0 client secret, raising an error if not configured."""
         if not self.auth0_client_secret:
-            raise ValueError("Auth0 client secret is not configured")
+            raise ValueError(self.AUTH0_CLIENT_SECRET_NOT_CONFIGURED)
         return self.auth0_client_secret.get_secret_value()
 
     def get_auth0_audience(self) -> str:
         """Get the Auth0 audience, raising an error if not configured."""
         if not self.auth0_audience:
-            raise ValueError("Auth0 audience is not configured")
+            raise ValueError(self.AUTH0_AUDIENCE_NOT_CONFIGURED)
         return self.auth0_audience
 
     def get_auth0_callback_url(self) -> str:
         """Get the Auth0 callback URL, raising an error if not configured."""
         if not self.auth0_callback_url:
-            raise ValueError("Auth0 callback URL is not configured")
+            raise ValueError(self.AUTH0_CALLBACK_URL_NOT_CONFIGURED)
         return str(self.auth0_callback_url)
 
     def get_pool_size(self) -> int:
@@ -426,7 +435,7 @@ class Settings(BaseSettings):
         return 0.3  # Default fallback
 
     @field_validator("postgres_uri", mode="before")
-    def assemble_postgres_uri(cls, v, values) -> str:  # noqa: N805, ANN001
+    def assemble_postgres_uri(cls, v: str | None, values: ValidationInfo) -> str | None:  # noqa: N805
         """Assemble the PostgreSQL URI from individual components if not provided."""
         if v:
             return v
@@ -442,7 +451,11 @@ class Settings(BaseSettings):
         return v
 
     @field_validator("auth0_domain", "auth0_client_id", "auth0_client_secret", "auth0_audience", "auth0_callback_url")
-    def validate_auth0_settings(cls, v, info):  # noqa: N805, ANN001
+    def validate_auth0_settings(
+        cls,  # noqa: N805
+        v: str | SecretStr | AnyHttpUrl | None,
+        info: ValidationInfo,
+    ) -> str | SecretStr | AnyHttpUrl | None:
         """Validate that all Auth0 settings are provided if any are provided."""
         # If this specific field is not set, just return it
         if v is None:
@@ -464,9 +477,10 @@ class Settings(BaseSettings):
             missing = [k for k, v in auth0_settings.items() if v is None]
             if missing:
                 missing_fields = ", ".join(missing)
-                raise ValueError(
+                error_message = (
                     f"Auth0 integration requires all Auth0 settings to be provided. Missing: {missing_fields}"
                 )
+                raise ValueError(error_message)
 
         return v
 
@@ -483,4 +497,5 @@ SETTINGS = Settings()
 
 # Configure logging
 logfire.configure()
-logfire.info(f"Starting application in {SETTINGS.environment} environment")
+environment_name = str(SETTINGS.environment)
+logfire.info(f"Starting application in {environment_name} environment")

@@ -28,7 +28,7 @@ class TestPhoneNumberValidator:
         """Test the phone number validation function directly."""
 
         # Create a simple function that mimics the validator's behavior
-        def validate_phone(v):
+        def validate_phone(v: str | None) -> str | None:
             if v is None:
                 return None
 
@@ -37,7 +37,8 @@ class TestPhoneNumberValidator:
             pattern = re.compile(r"^[\d\+\-\.\(\) ]+$")
 
             if not pattern.match(v):
-                raise ValueError("Invalid phone number format")
+                error_message = "Invalid phone number format"
+                raise ValueError(error_message)
             return v
 
         # Test valid phone numbers
@@ -61,14 +62,14 @@ class TestPhoneNumberValidator:
         ]
 
         for number in invalid_numbers:
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="Invalid phone number format"):
                 validate_phone(number)
 
     def test_none_handling(self):
         """Test that None values are handled correctly."""
 
         # Create a simple function that mimics the validator's None handling
-        def validate_phone(v):
+        def validate_phone(v: Any | None) -> Any | None:  # noqa: ANN401
             if v is None:
                 return None
             return v
@@ -429,7 +430,8 @@ class TestCrossFieldsValidator:
             has_city = values.get("city") is not None
 
             if has_street != has_city:
-                raise ValueError("Street and city must be provided together")
+                error_message = "Street and city must be provided together"
+                raise ValueError(error_message)
 
         class AddressModel(BaseModel):
             street: str | None = None
@@ -455,7 +457,8 @@ class TestCrossFieldsValidator:
             has_city = values.get("city") is not None
 
             if has_street != has_city:
-                raise ValueError("Street and city must be provided together")
+                error_message = "Street and city must be provided together"
+                raise ValueError(error_message)
 
         class AddressModel(BaseModel):
             street: str | None = None
@@ -481,7 +484,8 @@ class TestCollectionValidator:
 
         def validate_tag(tag: str) -> str:
             if not re.match(r"^[a-z0-9-]+$", tag):
-                raise ValueError("Tag must contain only lowercase letters, numbers, and hyphens")
+                error_message = "Tag must contain only lowercase letters, numbers, and hyphens"
+                raise ValueError(error_message)
             return tag
 
         class ArticleModel(BaseModel):
@@ -501,7 +505,8 @@ class TestCollectionValidator:
 
         def validate_tag(tag: str) -> str:
             if not re.match(r"^[a-z0-9-]+$", tag):
-                raise ValueError("Tag must contain only lowercase letters, numbers, and hyphens")
+                error_message = "Tag must contain only lowercase letters, numbers, and hyphens"
+                raise ValueError(error_message)
             return tag
 
         class ArticleModel(BaseModel):
@@ -525,7 +530,8 @@ class TestCollectionValidator:
 
         def validate_tag(tag: str) -> str:
             if not re.match(r"^[a-z0-9-]+$", tag):
-                raise ValueError("Tag must contain only lowercase letters, numbers, and hyphens")
+                error_message = "Tag must contain only lowercase letters, numbers, and hyphens"
+                raise ValueError(error_message)
             return tag
 
         class ArticleModel(BaseModel):
@@ -547,12 +553,12 @@ class TestDependentFieldsValidator:
         """Test valid dependent fields validation."""
 
         def validate_payment_fields(payment_type: str, fields: dict[str, Any]) -> None:
-            if payment_type == "credit_card":
-                if not fields.get("card_number"):
-                    raise ValueError("Card number is required for credit card payments")
-            elif payment_type == "bank_transfer":
-                if not fields.get("account_number"):
-                    raise ValueError("Account number is required for bank transfers")
+            if payment_type == "credit_card" and not fields.get("card_number"):
+                error_message = "Card number is required for credit card payments"
+                raise ValueError(error_message)
+            if payment_type == "bank_transfer" and not fields.get("account_number"):
+                error_message = "Account number is required for bank transfers"
+                raise ValueError(error_message)
 
         class PaymentModel(BaseModel):
             payment_type: str
@@ -584,12 +590,12 @@ class TestDependentFieldsValidator:
         """Test invalid dependent fields validation."""
 
         def validate_payment_fields(payment_type: str, fields: dict[str, Any]) -> None:
-            if payment_type == "credit_card":
-                if not fields.get("card_number"):
-                    raise ValueError("Card number is required for credit card payments")
-            elif payment_type == "bank_transfer":
-                if not fields.get("account_number"):
-                    raise ValueError("Account number is required for bank transfers")
+            if payment_type == "credit_card" and not fields.get("card_number"):
+                error_message = "Card number is required for credit card payments"
+                raise ValueError(error_message)
+            if payment_type == "bank_transfer" and not fields.get("account_number"):
+                error_message = "Account number is required for bank transfers"
+                raise ValueError(error_message)
 
         class PaymentModel(BaseModel):
             payment_type: str

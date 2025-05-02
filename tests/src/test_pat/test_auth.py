@@ -2,10 +2,8 @@
 
 import json
 import time
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 from fastapi import HTTPException, Request, status
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
@@ -13,7 +11,6 @@ from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
 from pat.utils.auth import (
     UserProfile,
     get_current_user,
-    get_jwks,
     get_user_profile,
     validate_token,
 )
@@ -81,7 +78,8 @@ def mock_token(mock_token_payload):
 
 
 @pytest.mark.asyncio
-async def test_validate_token_success(mock_settings, mock_jwks, mock_token):
+@pytest.mark.usefixtures("mock_settings")
+async def test_validate_token_success(mock_jwks, mock_token):
     """Test that validate_token successfully validates a token."""
     # Mock get_jwks to return the mock JWKS
     with (
@@ -99,7 +97,8 @@ async def test_validate_token_success(mock_settings, mock_jwks, mock_token):
 
 
 @pytest.mark.asyncio
-async def test_validate_token_expired(mock_settings, mock_jwks, mock_token):
+@pytest.mark.usefixtures("mock_settings")
+async def test_validate_token_expired(mock_jwks, mock_token):
     """Test that validate_token handles expired tokens."""
     # Mock get_jwks to return the mock JWKS
     with (
@@ -118,7 +117,8 @@ async def test_validate_token_expired(mock_settings, mock_jwks, mock_token):
 
 
 @pytest.mark.asyncio
-async def test_validate_token_invalid_claims(mock_settings, mock_jwks, mock_token):
+@pytest.mark.usefixtures("mock_settings")
+async def test_validate_token_invalid_claims(mock_jwks, mock_token):
     """Test that validate_token handles invalid claims."""
     # Mock get_jwks to return the mock JWKS
     with (
@@ -137,7 +137,8 @@ async def test_validate_token_invalid_claims(mock_settings, mock_jwks, mock_toke
 
 
 @pytest.mark.asyncio
-async def test_get_user_profile_from_token(mock_settings, mock_token, mock_token_payload):
+@pytest.mark.usefixtures("mock_settings")
+async def test_get_user_profile_from_token(mock_token, mock_token_payload):
     """Test that get_user_profile gets the profile from a token."""
     # Mock validate_token to return the payload
     with patch("pat.utils.auth.validate_token", return_value=mock_token_payload):
@@ -148,7 +149,8 @@ async def test_get_user_profile_from_token(mock_settings, mock_token, mock_token
 
 
 @pytest.mark.asyncio
-async def test_get_user_profile_from_userinfo(mock_settings, mock_token):
+@pytest.mark.usefixtures("mock_settings")
+async def test_get_user_profile_from_userinfo(mock_token):
     """Test that get_user_profile gets the profile from the userinfo endpoint."""
     # Mock validate_token to raise an error
     with (
@@ -169,7 +171,8 @@ async def test_get_user_profile_from_userinfo(mock_settings, mock_token):
 
 
 @pytest.mark.asyncio
-async def test_get_current_user(mock_settings, mock_token, mock_token_payload):
+@pytest.mark.usefixtures("mock_settings", "mock_token_payload")
+async def test_get_current_user(mock_token):
     """Test that get_current_user gets the current user."""
     # Mock get_token_from_request to return the token
     with (
