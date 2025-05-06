@@ -2,16 +2,19 @@
 
 import json
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, Request, status
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
 
+from pat.models.role import Permission
 from pat.utils.auth import (
     UserProfile,
+    check_permission,
     get_current_user,
     get_user_profile,
+    permission_required,
     validate_token,
 )
 
@@ -190,3 +193,120 @@ async def test_get_current_user(mock_token):
         # Should return the UserProfile
         result = await get_current_user(mock_request)
         assert result == user_profile
+
+
+@pytest.mark.asyncio
+async def test_check_permission_user_has_permission():
+    """Test that check_permission returns True when the user has the permission."""
+    # Create mock session and user profile
+    mock_session = AsyncMock()
+    user_profile = UserProfile(sub="auth0|123456789", email="test@example.com")
+
+    # Mock get_db_user to return a user with the permission
+    mock_user = AsyncMock()
+    mock_user.has_permission = AsyncMock(return_value=True)
+
+    with patch("pat.utils.auth.get_db_user", return_value=mock_user):
+        # Should return True
+        result = await check_permission(mock_session, user_profile, Permission.READ_ROLE)
+        assert result is True
+
+        # Verify that has_permission was called with the correct permission
+        mock_user.has_permission.assert_called_once_with(mock_session, Permission.READ_ROLE)
+
+
+@pytest.mark.asyncio
+async def test_check_permission_user_does_not_have_permission():
+    """Test that check_permission returns False when the user doesn't have the permission."""
+    # Create mock session and user profile
+    mock_session = AsyncMock()
+    user_profile = UserProfile(sub="auth0|123456789", email="test@example.com")
+
+    # Mock get_db_user to return a user without the permission
+    mock_user = AsyncMock()
+    mock_user.has_permission = AsyncMock(return_value=False)
+
+    with patch("pat.utils.auth.get_db_user", return_value=mock_user):
+        # Should return False
+        result = await check_permission(mock_session, user_profile, Permission.CREATE_ROLE)
+        assert result is False
+
+        # Verify that has_permission was called with the correct permission
+        mock_user.has_permission.assert_called_once_with(mock_session, Permission.CREATE_ROLE)
+
+
+@pytest.mark.asyncio
+async def test_check_permission_user_not_found():
+    """Test that check_permission returns False when the user is not found."""
+    # Create mock session and user profile
+    mock_session = AsyncMock()
+    user_profile = UserProfile(sub="auth0|123456789", email="test@example.com")
+
+    # Mock get_db_user to raise an HTTPException
+    with patch("pat.utils.auth.get_db_user", side_effect=HTTPException(status_code=404, detail="User not found")):
+        # Should return False
+        result = await check_permission(mock_session, user_profile, Permission.READ_ROLE)
+        assert result is False
+
+
+@pytest.mark.asyncio
+async def test_permission_required_decorator_with_permission():
+    """Test that permission_required decorator allows access when the user has the permission."""
+    # Create mock request, session, and user profile
+    mock_request = MagicMock(spec=Request)
+    mock_session = AsyncMock()
+    user_profile = UserProfile(sub="auth0|123456789", email="test@example.com")
+
+    # Create a mock function to decorate
+    mock_func = AsyncMock(return_value="function result")
+
+    # Mock the necessary functions
+    with (
+        patch("pat.utils.auth.get_session", return_value=AsyncMock(__anext__=AsyncMock(return_value=mock_session))),
+        patch("pat.utils.auth.get_current_user", return_value=user_profile),
+        patch("pat.utils.auth.check_permission", return_value=True),
+    ):
+        # Apply the decorator
+        decorated_func = permission_required(Permission.READ_ROLE)(mock_func)
+
+        # Call the decorated function
+        result = await decorated_func(mock_request, "arg1", kwarg1="value1")
+
+        # Should return the result of the original function
+        assert result == "function result"
+
+        # Verify that the original function was called with the correct arguments
+        mock_func.assert_called_once_with(mock_request, mock_session, "arg1", kwarg1="value1")
+
+
+@pytest.mark.asyncio
+async def test_permission_required_decorator_without_permission():
+    """Test that permission_required decorator denies access when the user doesn't have the permission."""
+    # Create mock request, session, and user profile
+    mock_request = MagicMock(spec=Request)
+    mock_session = AsyncMock()
+    user_profile = UserProfile(sub="auth0|123456789", email="test@example.com")
+
+    # Create a mock function to decorate
+    mock_func = AsyncMock()
+
+    # Mock the necessary functions
+    with (
+        patch("pat.utils.auth.get_session", return_value=AsyncMock(__anext__=AsyncMock(return_value=mock_session))),
+        patch("pat.utils.auth.get_current_user", return_value=user_profile),
+        patch("pat.utils.auth.check_permission", return_value=False),
+    ):
+        # Apply the decorator
+        decorated_func = permission_required(Permission.CREATE_ROLE)(mock_func)
+
+        # Call the decorated function, should raise HTTPException
+        with pytest.raises(HTTPException) as excinfo:
+            await decorated_func(mock_request)
+
+        # Verify the exception details
+        assert excinfo.value.status_code == status.HTTP_403_FORBIDDEN
+        assert "Permission denied" in excinfo.value.detail
+        assert Permission.CREATE_ROLE.value in excinfo.value.detail
+
+        # Verify that the original function was not called
+        mock_func.assert_not_called()

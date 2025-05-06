@@ -1,5 +1,5 @@
 fix_uv:
-	#uv sync --reinstall
+	uv sync --reinstall
 
 lint: fix_uv
 	- uv run ruff format

@@ -5,11 +5,15 @@ This module provides utilities for Auth0 authentication, including:
 - Token exchange
 - Token validation
 - User profile retrieval
+- Permission checking
 """
 
+import contextlib
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any
+from functools import wraps
+from typing import Any, TypeVar
 from urllib.parse import urlencode
 
 import httpx
@@ -23,8 +27,13 @@ from fastapi import HTTPException, Request, status
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from pat.config import SETTINGS
+from pat.models.role import Permission
+from pat.models.user import User
+from pat.utils.db import get_session
 
 # JWKS cache
 _JWKS_CACHE: dict[str, Any] = {}
@@ -371,3 +380,101 @@ async def get_current_user(request: Request) -> UserProfile:
     token = get_token_from_request(request)
     await validate_token(token)
     return await get_user_profile(token)
+
+
+async def get_db_user(session: AsyncSession, user_profile: UserProfile) -> User:
+    """Get the database User object for the authenticated user.
+
+    Args:
+        session: The database session.
+        user_profile: The user profile from Auth0.
+
+    Returns:
+        The User object from the database.
+
+    Raises:
+        HTTPException: If the user is not found in the database.
+
+    """
+    # Try to find the user by email
+    if user_profile.email:
+        stmt = select(User).where(User.email == user_profile.email)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        if user:
+            return user
+
+    # If user not found, raise an exception
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User not found in the database",
+    )
+
+
+async def check_permission(session: AsyncSession, user_profile: UserProfile, permission: Permission) -> bool:
+    """Check if the user has the specified permission.
+
+    Args:
+        session: The database session.
+        user_profile: The user profile from Auth0.
+        permission: The permission to check.
+
+    Returns:
+        True if the user has the permission, False otherwise.
+
+    """
+    try:
+        user = await get_db_user(session, user_profile)
+        return await user.has_permission(session, permission)
+    except HTTPException:
+        # If the user is not found, they don't have the permission
+        return False
+
+
+T = TypeVar("T", bound=Callable[..., Any])
+
+
+def permission_required(permission: Permission) -> Callable[[T], T]:
+    """Decorator to check if the user has the required permission.
+
+    Args:
+        permission: The permission required to access the endpoint.
+
+    Returns:
+        A decorator function.
+
+    """
+
+    def decorator(func: T) -> T:
+        @wraps(func)
+        async def wrapper(
+            request: Request,
+            *args: object,
+            **kwargs: object,
+        ) -> object:
+            # Get the database session
+            session_generator = get_session()
+            session = await session_generator.__anext__()
+
+            try:
+                # Get the current user
+                user_profile = await get_current_user(request)
+
+                # Check if the user has the required permission
+                has_permission = await check_permission(session, user_profile, permission)
+                if not has_permission:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Permission denied: {permission.value} is required",
+                    )
+
+                # Call the original function
+                return await func(request, session, *args, **kwargs)
+            finally:
+                # Clean up the session
+                with contextlib.suppress(StopAsyncIteration):
+                    await session_generator.__anext__()
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator

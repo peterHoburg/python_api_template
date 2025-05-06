@@ -126,3 +126,114 @@ class UserProfileResponse(BaseSchema):
     picture: str | None = Field(None, description="URL to the user's profile picture")
     email: str | None = Field(None, description="The user's email address")
     email_verified: bool | None = Field(None, description="Whether the user's email is verified")
+
+
+class PermissionResponse(BaseSchema):
+    """Schema for Permission enum values.
+
+    This schema is used for returning Permission enum values in API responses.
+    """
+
+    name: str = Field(..., description="The permission name")
+    value: str = Field(..., description="The permission value")
+
+
+class RoleBase(BaseSchema):
+    """Base schema for Role data.
+
+    This schema defines the common fields and validation rules for Role data.
+    It is used as a base for other Role-related schemas.
+    """
+
+    name: str = Field(..., description="Role name", max_length=100, min_length=1, examples=["admin"])
+    description: str | None = Field(
+        None, description="Role description", max_length=500, examples=["Administrator role"]
+    )
+
+
+class RoleCreate(BaseCreateSchema, RoleBase):
+    """Schema for creating a new Role.
+
+    This schema is used for validating data when creating a new Role.
+    It inherits from BaseCreateSchema for create-specific behavior and RoleBase for common fields.
+    """
+
+    permissions: list[str] | None = Field(
+        None, description="List of permission values to assign to the role", examples=[["admin", "create_user"]]
+    )
+
+
+class RoleUpdate(BaseUpdateSchema):
+    """Schema for updating an existing Role.
+
+    This schema is used for validating data when updating an existing Role.
+    All fields are optional to support partial updates.
+    It inherits from BaseUpdateSchema which configures the model for update operations.
+    """
+
+    name: str | None = Field(None, description="Role name", max_length=100)
+    description: str | None = Field(None, description="Role description", max_length=500)
+
+
+class RoleResponse(BaseResponseSchema, RoleBase):
+    """Schema for Role response data.
+
+    This schema is used for returning Role data in API responses.
+    It inherits from BaseResponseSchema which adds common response fields (id, created_at, updated_at)
+    and from RoleBase for the core Role fields.
+    """
+
+    permissions: list[PermissionResponse] = Field([], description="List of permissions assigned to the role")
+
+
+class RoleListResponse(BaseSchema):
+    """Schema for a list of roles, typically used with PaginatedResponse.
+
+    This schema is used for returning a collection of Role objects in API responses.
+    It can be wrapped in a PaginatedResponse for paginated list endpoints.
+    """
+
+    roles: list[RoleResponse] = Field(..., description="List of roles")
+
+
+class RoleDetailResponse(RoleResponse):
+    """Schema for detailed role information.
+
+    This schema extends RoleResponse to provide more detailed information about a role.
+    It can be used for endpoints that return comprehensive role data.
+    """
+
+    users: list[UserResponse] | None = Field(None, description="List of users assigned to this role")
+
+
+class RoleFilter(BaseSchema):
+    """Schema for filtering roles in list operations.
+
+    This schema defines the parameters that can be used to filter role listings.
+    It is typically used for GET endpoints that return lists of roles, allowing
+    clients to filter the results based on various criteria.
+    """
+
+    name: str | None = Field(None, description="Filter by role name")
+    sort_by: str | None = Field(None, description="Field to sort by")
+    sort_order: str | None = Field(None, description="Sort order (asc or desc)")
+
+
+class RoleAssignmentRequest(BaseSchema):
+    """Schema for assigning roles to users.
+
+    This schema is used for validating data when assigning roles to users.
+    """
+
+    user_id: int = Field(..., description="ID of the user to assign the role to", gt=0)
+    role_id: int = Field(..., description="ID of the role to assign", gt=0)
+
+
+class PermissionAssignmentRequest(BaseSchema):
+    """Schema for assigning permissions to roles.
+
+    This schema is used for validating data when assigning permissions to roles.
+    The role_id is provided as a path parameter in the API, so it's not included in this schema.
+    """
+
+    permission: str = Field(..., description="Name of the permission to assign")
